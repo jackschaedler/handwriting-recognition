@@ -1,2 +1,2 @@
-# mid-century-character-recognition
-Active essay revisiting the Gabriel Groner's GRAIL character recognizer from the 1960s
+# handwriting-recognition
+Active essay revisiting Gabriel Groner's GRAIL handwriting recognizer from the 1960s

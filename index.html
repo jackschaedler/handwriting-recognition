@@ -1,0 +1,977 @@
+<html>
+ 	<head>
+ 		<title>GRAIL Text Recognizer</title>
+	  	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	  	<meta name="robots" content="noindex" />
+	  	<script type="text/javascript" src="third_party/d3/d3.min.js"></script>
+
+	    <!-- Tangle -->
+	    <script type="text/javascript" src="third_party/Tangle-0.1.0/Tangle.js"></script>
+
+	    <!-- TangleKit (optional) -->
+	    <script type="text/javascript" src="third_party/Tangle-0.1.0/TangleKit/mootools.js"></script>
+	    <script type="text/javascript" src="third_party/Tangle-0.1.0/TangleKit/sprintf.js"></script>
+
+
+		<link href='https://fonts.googleapis.com/css?family=Lato:400,700' rel='stylesheet' type='text/css'>
+		<link href='https://fonts.googleapis.com/css?family=Vollkorn:400italic,400' rel='stylesheet' type='text/css'>
+		<link href='https://fonts.googleapis.com/css?family=Inconsolata:700,400' rel='stylesheet' type='text/css'>
+		<link href='https://fonts.googleapis.com/css?family=Arvo' rel='stylesheet' type='text/css'>
+
+		<style>
+			@import url("fontello-c09bfd6a/css/fontello.css");
+			@import url("fontello-c09bfd6a/css/animation.css");
+			@import url("style.css");
+		</style>
+
+		<script>
+		  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+		  ga('create', 'UA-59785365-3', 'auto');
+		  ga('send', 'pageview');
+		</script>
+
+ 	<link rel="icon" type="" href="favicon.ico">
+
+	<script type="text/javascript" src="js/grail.js"></script>
+    <script type="text/javascript">
+
+    	var SMOOTHING_TANGLE;
+    	var THINNING_TANGLE;
+
+        function setUpSmoothingTangle () {
+
+            var smoothing = document.getElementById("smoothing_tangle");
+
+			SMOOTHING_TANGLE = new Tangle(smoothing, {
+                initialize: function () {
+                    this.smooth_prev = 0.75;
+                    this.smooth_curr = 0.25;
+                    this.smoothing_pct = 0.75;
+                },
+                update: function () {
+                	this.smooth_prev = this.smoothing_pct;
+                	this.smooth_curr = 1 - this.smoothing_pct;
+                }
+            });
+        }
+
+        function updateSmoothing(value) {
+        	var raw = parseFloat(value);
+        	raw = raw / 100;
+        	raw = Math.pow(raw, 0.25);
+        	SMOOTHING_TANGLE.setValue("smoothing_pct", (raw));
+        }
+
+
+    	var THINNING_TANGLE;
+
+        function setUpThinningTangle () {
+
+            var thinning = document.getElementById("thinning_tangle");
+
+			THINNING_TANGLE = new Tangle(thinning, {
+                initialize: function () {
+                    this.thinning_threshold = 0.2;
+                },
+                update: function () {
+                }
+            });
+        }
+
+        function updateThinning(value) {
+        	var raw = parseFloat(value);
+        	raw = raw / 100;
+        	THINNING_TANGLE.setValue("thinning_threshold", (raw));
+        }
+
+
+
+    	var CORNER_TANGLE;
+
+        function setUpCornerTangle () {
+
+            var corner = document.getElementById("corner_tangle");
+
+			CORNER_TANGLE = new Tangle(corner, {
+                initialize: function () {
+                    this.corner_threshold = 90;
+                },
+                update: function () {
+                }
+            });
+        }
+
+        function updateCorner(value) {
+        	CORNER_TANGLE.setValue("corner_threshold", (value));
+        }
+
+
+        function setUpTangles() {
+        	setUpSmoothingTangle();
+        	setUpThinningTangle();
+        	setUpCornerTangle();
+        }
+
+    </script>
+	</head>
+
+
+  <body onload="setUpTangles();">
+  	<div class="textwrap">
+  	<div class="titleBox" style="background-color: #333; border-bottom: 5px solid rgb(81, 167, 184)">
+		<table style="border-collapse: collapse; height: 246px">
+			<tr>
+				<td width="980px" height="246px" style="padding:0; margin:0;">
+					<div style="position: relative; width: 100%">
+						<div class="littleheader" style=" width: 45%; font-size: 40px; line-height: 0.88; color: #fafffa; font-family: Vollkorn; margin-left: 45px; text-shadow: 2px 2px #333; float: left; margin-top: 90px"> <span style="color: rgb(81, 167, 184)">Back</span> <span style="font-size: 25px; color: #ddd">to the</span> <span style=""> Future</span> <span style="font-size: 25px; color: #ddd">o<i>f</i><br/></span> Hand&nbsp;&nbsp;&nbsp;riting Recognition<br/>
+							<div class="subheader" style="font-size: 14px; line-height: 1; margin-top: 8px; color: #888;  text-shadow: none;"> An Active Essay Revisiting the GRAIL Handwriting Recognizer</div>
+							<div class="subheader" style="font-size: 14px; line-height: 1; margin-top: 8px; color: #666;  text-shadow: none"> Jack Schaedler, 2016</div>
+						</div>
+						<img style="float: right; " src="rand_tablet.jpg"> </img>
+						<svg id="titlew" class="svgWithText" width="30" height="30" style="position: absolute; top:128px; left: 140px; z-index: 20;"></svg>
+						<script type="text/javascript" src="js/titlew.js"></script>
+					</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<br/><br/>
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+
+					<i><span style="font-size: 20px">F</span>ifty years ago</i>, RAND corporation developed the Graphical Input Language software system (GRAIL). In a RAND memorandum from 1966, the stated objective of GRAIL was to, “Investigate methods by which a user may deal directly, naturally, and easily with [their] problem.” Users communicated with GRAIL using a pen-like instrument and tablet. GRAIL had no mouse, no keyboard, no buttons, no joystick, and none of the other paraphernalia that we generally associate with modern computing. When the user wanted a box on the screen, they <i>drew</i> the box. When the user wanted text on the screen, they <i>handprinted</i> the text. When you <a href="https://youtu.be/p2LZLYcu_JY?t=24m30s">watch a demo</a> of the system today, it still feels elegant and magical. To steal a line from Tony Hoare, GRAIL is in many ways an improvement on nearly all of its successors.
+
+					<table>
+						<tr>
+				<!-- 			<td>
+								<div id="demo_wrapper" class="animation" style="position: relative;">
+									<svg id="demo" class="svgWithText" width="90" height="90" style="padding: 0px;"></svg>
+									<script type="text/javascript" src="js/demo.js"></script>
+								</div>
+							</td> -->
+							<td>
+								<div class ="text" style="margin-top: 30px">
+									<div style="font-family: Arvo; font-size: 14; width: 90%">
+										“This recognition scheme meets its primary objective of enabling any user to communicate naturally with a computer. A user is not distracted by any operational mechanics but, rather, may concentrate on [their] problem.” <br/><br/><span style="float: right">- Gabriel Groner (1966)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+									</div>
+								</div>
+							</td>
+						</tr>
+					</table>
+
+				</div>
+  			</td>
+  			<td class="figureExplanation" style="">
+  				The image above depicts Tom Ellis using the RAND tablet to interact with an onscreen image sometime in the 1960s. Ellis was one of the inventors and project leads for the RAND tablet and GRAIL software system.
+  				This, and many other images can be found online at the<a href="http://www.computerhistory.org/collections/search/?s=Rand+Tablet"> Computer History Museum</a>.
+			</td>
+  		</tr>
+  	</table>
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+					<br/><br/>
+					In this active essay, we will revisit Gabriel Groner’s contribution to the GRAIL project. Groner developed a wonderfully clever program which recognized handprinted letters, numbers, punctuation marks, and geometric figures. The program was efficient enough to run in real-time on a <a href="https://en.wikipedia.org/wiki/IBM_System/360">IBM System/360</a> computer, and robust enough to properly identify <i>90 percent</i> of the symbols drawn by first-time users. Groner documented his method in a 1966 RAND memorandum on the <a href="http://www.rand.org/pubs/research_memoranda/RM5016.html"><i>Real-Time Recognition of Handprinted Text</i></a>.
+					<br/>
+
+					<br/> By the end of this essay, you should understand exactly how Groner’s handwriting recognition scheme works. More precisely, you will <i>see</i> how Groner’s method works, and develop an intuitive understanding of its various operations and phases. It’s best if you read this essay as a dynamic companion to Groner’s <a href="http://www.rand.org/pubs/research_memoranda/RM5016.html">original memorandum</a>. When Groner describes an algorithm or heuristic, this essay will provide you with an interactive implementation that you can explore. When text is taken verbatim from Groner’s memo, it will be <span style="font-family: Arvo">rendered in an alternative font</span>. The recognition scheme described in the original memorandum was capable of recognizing a wide variety of symbols, shapes, numbers, letters, and even punctuation marks. In this essay, I will present a simple version of Groner’s recognizer that can only identify uppercase numbers and letters.<br/><br/>
+					All of the source code for this essay is publicly available on <a href="https://github.com/jackschaedler/handwriting-recognition">Github</a>. Please submit all bugs, typos, and suggestions to the <a href="https://github.com/jackschaedler/handwriting-recognition/issues">issue tracker</a>. Feel free to <a href="https://twitter.com/jackschaedler">contact me</a> on Twitter if you have any questions or comments about this piece.
+				</div>
+  			</td>
+  			<td class="figureExplanation" style="">
+  				<br/><br/><br/><br/><br/><br/>
+  				In fact, you can read the source code for Groner’s <a href="http://www.rand.org/pubs/research_memoranda/RM5550.html">entire program</a>, which he wrote in IBM 360 Assembly.
+			</td>
+  		</tr>
+  	</table>
+
+
+	<div class="littleheader" style="font-family: Vollkorn"> The RAND Tablet
+	</div>
+<!-- 	<div class="divider">
+	</div> -->
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+
+				<div style="font-family: Arvo; font-size: 15; width: 95%; text-align: center">
+					“Present-day user-computer interface mechanisms provide far from optimum communication, considerably reducing the probability that full advantage is being taken of the capabilities of either the machine or of the user... It was felt that exploration of man’s existent dexterity with a free, pen-like instrument on a horizontal surface, like a pad of paper, would be fruitful.”<br/><br/>
+					<span style="float: right"> - M.R Davis and T.O. Ellis (1964)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+				</div>
+				<br/>
+				<br/>
+
+				<div>
+				Humans interacted with GRAIL using a <a href="https://en.wikipedia.org/wiki/RAND_Tablet"><i>RAND tablet</i></a>. All input to the system was <i>drawn</i> onto the surface of RAND tablet using a pen-like instrument. The 10.24" × 10.24" tablet had a resolution of 100 lines per inch, making it capable of accurately digitizing more than one million discrete pen positions. A pressure sensitive switch was installed in the tip of the pen, allowing the user to press the pen against the writing surface whenever they wished to make a mark on the screen. The position of the stylus was reported to GRAIL every four milliseconds as a pair of <i>(x, y)</i> coordinates.
+
+
+				<br/><br/>
+			 	Below, you will find a <i>virtual</i> tablet on which you can draw and scribble. Like the RAND tablet, this virtual tablet’s surface is discretized. This means that the writing surface is divided into a <i>grid</i>, and all pen positions are reported as coordinates on this grid. While the RAND tablet had a resolution of 100 lines per inch, our virtual tablet has a considerably lower resolution of around 20 lines per inch. Therefore, it is best to imagine our virtual tablet as a <i>small portion</i> of a RAND tablet scaled up by about 500%. Keep this in mind when writing on the tablet. Draw letters and numbers so that they fill up around 70% of the available tablet height. Draw big!
+				</div>
+
+				<br/>
+			 	To begin drawing, move your pointer over the tablet and press the mouse button. This simulates the act of pressing the stylus against the surface of the tablet. Without releasing the mouse button, move your pointer across the tablet surface to make a mark. When you’re happy with your mark, release the mouse button. Try to get a feel for working on the tablet by drawing a few numbers (<span style="font-family: Inconsolata; font-weight: bold">2</span>, <span style="font-family: Inconsolata; font-weight: bold">3</span>, <span style="font-family: Inconsolata; font-weight: bold">6</span>) and letters (<span style="font-family: Inconsolata; font-weight: bold">C</span>, <span style="font-family: Inconsolata; font-weight: bold">M</span>, <span style="font-family: Inconsolata; font-weight: bold">S</span>) that can be completed without lifting the pen from the surface of the tablet. Once you feel comfortable scribbling and drawing on the virtual tablet, scroll onwards to the next section.
+				</div>
+
+				<br/>
+				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="input_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail0" class="svgWithText" width="350" height="350" style="cursor: crosshair"></svg>
+									<script type="text/javascript" src="js/grail0.js"></script>
+								</div>
+  							</td>
+  							<td>
+  								<div id="" style="text-align: justify; font-size: 14; font-family: Arvo">
+  									“A user communicates with the computer via a RAND tablet in conjunction with a cathode ray tube (CRT) display. The tablet hardware consists of a horizontal 10" square writing surface and pen-like writing instrument...<br/><br/> When he presses the pen against the tablet writing surface, a switch in the pen closes, thereby notifying the central processing unit (CPU) of a "pen-down action"...<br/><br/> When the pen is lifted, the pen-switch is opened, thereby notifying the CPU of a "pen-up" action... As the pen is moved across the writing surface, the recognition scheme is notified of its position every 4 msec.”
+				  				</div>
+  							</td>
+						</tr>
+  				</table>
+  			</td>
+
+
+  			<td class="figureExplanation" style="">
+  				Regarding <i>dexterity</i>: See Bret Victor’s, <i> <a href="http://worrydream.com/#!/ABriefRantOnTheFutureOfInteractionDesign">Brief Rant on the Future of Interaction Design</a>.</i>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/>
+  				This was some seriously cool technology for 1963. You can read RAND’s memorandum on the particulars of the design and implementation <a href="http://www.rand.org/pubs/research_memoranda/RM4122.html">here</a>.
+				If you’re interested in more anecdotal information about the RAND tablet, watch <a href="https://youtu.be/pUoBSC3uoeo?t=36m50s"> this video</a> of Alan Kay discussing the Rand tablet.
+				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/>
+  				I’m using some less than optimal terminology here because I have no idea what sort of device you might be using to read this essay. I’m fairly certain that - if they aren‘t already - terms like <i>mouse</i> and <i>click</i> will soon feel as anachronistic as a <i>carriage return</i>. That means that you’ll have to do some on-the-fly translation if you happen to be using something mouse-less like a trackpad, touchscreen, or tablet.
+			</td>
+  		</tr>
+  	</table><br/>
+
+
+	<div class="littleheader" style="font-family: Vollkorn"> Smoothing
+	</div>
+<!-- 	<div class="divider">
+	</div> -->
+
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+				<div>
+ 				You might have noticed that the marks you make on the tablet will appear with ugly little perturbations and <a href="https://en.wikipedia.org/wiki/Jaggies">jaggies</a> when they are displayed on the screen. This occurs because the tablet can only report pen positions which lie on a discrete grid. This means that even smoothly drawn curves will inevitably include little bumps and corners after being captured by the tablet. These jaggies look ugly, but more importantly, they add unwanted <i>noise</i> to the list of pen positions. In order to remove this noise, Groner decided to <i>smooth</i> the tablet’s output.
+ 				</div><br/>
+
+  				<div style="font-family: Arvo; font-weight: normal">
+  				"The scheme smoothes the data by averaging a newly arrived data-point with the previously smoothed data-point, thus reducing the noise due to the discreteness of the pen location as measured by the tablet."
+				</div><br/>
+
+				<div>
+				What Groner describes as <i>noise due to discreteness</i>, you would probably describe as <i>pixelation</i>.
+				The figure below allows you to get a feel for the effects of pixelation or <i>discretization</i> on a smoothly drawn stroke. Press the <i>Draw</i> button to see the “real” path taken by the pen when drawing a smooth curve. Once the curve is drawn, press the <i>Snap</i> button to see the effect of forcing each point to lie on a discrete grid. Notice how the discretization introduces lots of little bumps, corners, and flat segments in what was previously a smooth curve.
+				</div>
+				<br/>
+
+				<div id="jaggies_wrapper" class="animation" style="position: relative; ">
+					<svg id="jaggies" class="svgWithText" width="700" height="140" style="margin: 10px; margin-left: 10px; margin-top: 25px; cursor: default">
+					</svg>
+					<script type="text/javascript" src="js/jaggies.js"></script>
+				</div>
+				<br/>
+
+				Fortunately, we can <i>smooth</i> the tablet’s output to liberate these points from the impositions of a fixed grid. The smoothing operation is performed by <span style="">averaging the position of each new quantized datapoint with the position of the last smoothed datapoint</span>. We can geometrically perform this averaging by drawing a <span style="">straight line</span> between each <span style="">quantized datapoint</span> and the most recently <span style="">smoothed datapoint</span>. We then <i>slide</i> the quantized point along this line towards the previously smoothed point. The further we slide the point, the more we accentuate the effect of the smoothing. You can develop an intuition for this smoothing algorithm using the visualization below. The quantized datapoints are drawn in blue, and the smoothed points will be drawn in black. The three buttons allow you to specify how far each point should slide along the guideline. Higher percentages will lead to a smoother curve.
+				<br/>
+				<br/>
+				<br/>
+
+				<div id="smoothing_wrapper" class="animation" style="position: relative; ">
+					<svg id="smoothing" class="svgWithText" width="700" height="140" style="margin: 10px; margin-left: 10px; margin-top: 25px; cursor: default">
+					</svg>
+					<script type="text/javascript" src="js/smoothing.js"></script>
+				</div><br/>
+
+				This simple smoothing scheme allows us to rid the data of unwanted bumps and jaggies while still maintaining the overall <i>gesture</i> of the stroke. Note however, that smoothing is a destructive process. Small flourishes of the pen will be obliterated by smoothing. For this reason, it’s crucially important to choose an appropriate smoothing factor.
+				<br/><br/>
+				Draw on the tablet below to see how this smoothing scheme will affect more interesting inputs. You can change the degree to which each stroke is smoothed by dragging the slider to the right of the visualization. Spend some time drawing letters, numbers, and simple shapes onto the tablet. I suggest that you begin by drawing a straight line from the bottom left to the top right of the tablet. Once this is done, slowly drag the slider to see how the stroke is transformed as the amount of smoothing is varied.
+
+				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="smooth_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail1" class="svgWithText" width="350" height="350" style="margin: 10px; margin-left: 0px; cursor: crosshair"></svg>
+									<script type="text/javascript" src="js/grail1.js"></script>
+								</div>
+  							</td>
+  							<td>
+  								<div id="smoothing_tangle" style="text-align: center; font-size: 14; font-family: Arvo">
+  									Smoothing is based on the equations,<br/><br/><br/>
+
+				  					X<sub>Si</sub> =
+				  					<span data-var="smooth_prev" data-format="%.2f"></span>X<sub>Si-1</sub> +
+				  					<span data-var="smooth_curr" data-format="%.2f"></span><span style="color: rgb(71, 157, 174)">X<sub>Ri</sub></span>
+				  					<br/>
+
+
+				  					Y<sub>Si</sub> =
+				  					<span data-var="smooth_prev" data-format="%.2f"></span>Y<sub>Si-1</sub> +
+				  					<span data-var="smooth_curr" data-format="%.2f"></span><span style="color: rgb(71, 157, 174)">Y<sub>Ri</sub></span>
+				  					<br/><br/>
+
+									<span style="color: rgb(71, 157, 174)">
+				  					X<sub>Ri</sub>,Y<sub>Ri</sub></span>  = coordinates of i<sup>th</sup> <span style="color: rgb(71, 157, 174)">raw point</span>
+				  					<br/>
+
+
+				  					X<sub>Si</sub>,Y<sub>Si</sub>  = coordinates of i<sup>th</sup> smoothed point
+				  					<br/><br/><br/><br/>
+
+				  					Smoothing Factor: <span data-var="smoothing_pct" class="TKNumber" data-min="0.0" data-max="0.95" data-format="%.2f" data-step="0.01"></span><br/>
+
+				  					<input data-var="smoothing_pct" type=range min=0 max=100 value=30 id=smoothingSlider step=0.5 oninput="updateSmoothing(value);" style="width:150px">
+				  				</div>
+  							</td>
+						</tr>
+  				</table>
+  			</td>
+  			<td class="figureExplanation" style="">
+  				This sort of noise is referred to as <a href="https://en.wikipedia.org/wiki/Quantization_(signal_processing)"><i>quantization noise</i></a>. Quantization is the process by which a continuous value is approximated by a set of discrete values. When a continuous value does not match the discrete value used to represent it, there is some error or noise introduced by this act of quantization. Sometimes, this error is offset by actually introducing more random noise! This is a process known as <a href="https://en.wikipedia.org/wiki/Dither">Dithering</a></i>. Groner did not dither the tablet output, but chose instead to simply smooth it.
+
+  				<br/><br/>
+  				Groner would <i>not</i> have referred to these strokes as looking "pixelly" because pixel-based graphics were not invented until the late 1960s. Groner was operating in a pre-pixel world, just like Ivan Sutherland when he built his <a href="https://youtu.be/6orsmFndx_o">Sketchpad</a> system.
+
+
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				If you want to dig more deeply into the mathematics behind this smoothing scheme, it’s worth knowing that this is an application of an <a href="https://en.wikipedia.org/wiki/Infinite_impulse_response"><i>infinite impulse response</i></a> filter. The exact formula is shown interactively in the next visualization.
+				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				<br/><br/><br/>
+  				I like this visualization because it reveals a surprising quality of this smoothing scheme: When smoothing a curve with a large smoothing factor, the curve will begin to rapidly collapse in upon itself. If you’re comfortable reading formulas, you might be able to easily anticipate this ”black hole effect” when using a smoothing factor of 100%, but it would take someone with a great ability for “playing computer” to understand that there is a rapid acceleration of this effect when the smoothing factor goes above 80%. I was surprised by this quality, and I suppose that’s because humans aren’t great at understanding recursive processes (not me anyway). Perceptive readers will notice that the slider is scaled non-linearly to account for the black hole effect.
+			</td>
+  		</tr>
+  	</table>
+
+
+	<div class="littleheader" style="font-family: Vollkorn"> Thinning
+	</div>
+<!-- 	<div class="divider">
+	</div> -->
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+
+				<div>
+				You’ve probably noticed that it’s possible to generate lots of datapoints, especially when moving your pointer very slowly across the tablet. Because we are only interested in the general shape of each stroke, most of these datapoints are actually unnecessary. Groner employed a very simple <i>thinning</i> scheme to remove these unnecessary points. It can be geometrically described as follows: Draw a <span style="">square</span> around the first datapoint. All subsequent points which lie inside of this square are to be discarded. The square is then repositioned around the next point which falls outside of the square, and the process is repeated. The size of the square determines how aggressively the stroke is thinned. This thinning scheme is visualized below.
+				</div>
+				<br/>
+
+  				<div style="font-family: Arvo; font-weight: normal">
+  				"Thinning is the process of removing some of the data-points from the pen track. This is accomplished by comparing the position of a new smoothed data-point with the position of the last point in a thinned track. If these points are sufficiently far apart, the analysis scheme accepts the smoothed point as part of the thinned track; otherwise, it is discarded. Thinning eliminates small perturbations in the track, and reduces the data processing requirements by drastically reducing the number of data-points."
+				</div>
+				<br/>
+
+				<div id="thinning_wrapper" class="animation" style="position: relative; ">
+					<svg id="thinning" class="svgWithText" width="700" height="140" style="margin: 10px; margin-left: 10px; margin-top:25px; cursor: default">
+					</svg>
+					<script type="text/javascript" src="js/thinning.js"></script>
+				</div>
+				<br/>
+
+				<div>
+				The next tablet allows you to experiment with this thinning scheme on arbitrary input. Raw datapoints are drawn in blue, and the thinned points are drawn in black. The “thinning square” is drawn in pink around the most recently thinned point. Start by drawing a symbol on the tablet, and then varying the thinning aggressiveness by dragging the slider at the bottom right of the figure. You should notice that it’s possible to preserve the essential shape of most strokes even when thinning quite aggressively. Groner found that he could achieve satisfactory results even when discarding around <i>seventy percent</i> of the raw datapoints!
+				</div>
+
+
+				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="thin_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail2" class="svgWithText" width="350" height="350" style="margin: 10px; margin-left: 0px; cursor: crosshair"></svg>
+									<script type="text/javascript" src="js/grail2.js"></script>
+								</div>
+  							</td>
+  							<td>
+  								<div id="thinning_tangle" style="text-align: center; font-size: 14; font-family: Arvo">
+  									Thinning is described by,<br/><br/><br/>
+
+  									X<sub>Tj</sub> = X<sub>Si</sub>, Y<sub>Tj</sub> = Y<sub>Si</sub>
+  									<br/><br/>
+  									if either of the following is true
+  									<br/><br/>
+  									|X<sub>Si</sub> - X<sub>Tj-1</sub>| >= <span data-var="thinning_threshold" data-format="%.2f"></span><br/>
+  									|Y<sub>Si</sub> - Y<sub>Tj-1</sub>| >= <span data-var="thinning_threshold" data-format="%.2f"></span><br/>
+  									<br/>
+
+									<span style="color: #000">
+				  					X<sub>Tj</sub>,Y<sub>Tj</sub></span>  = coordinates of j<sup>th</sup> <span style="color: #000">thinned point</span>
+				  					<br/><br/><br/>
+
+				  					Thinning Size = <span data-var="thinning_threshold" class="TKNumber" data-min="0.0" data-max="2.0" data-format="%.2f" data-step="0.05"></span><br/>
+
+				  					<input data-var="thinning_pct" type=range min=0 max=200 value=20 id=thinningSlider step=1 oninput="updateThinning(value);" style="width:100px">
+				  				</div>
+  							</td>
+						</tr>
+  				</table>
+  			</td>
+   			<td class="figureExplanation" style="">
+			</td>
+  		</tr>
+  	</table><br/><br/>
+
+	<div class="littleheader" style="font-family: Vollkorn"> Curvature
+	</div>
+<!-- 	<div class="divider">
+	</div> -->
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+
+
+  				<div style="font-family: Arvo; font-weight: normal">
+  				"<i>Curvature</i> is the most obvious track characteristic which is independent of position and size, and yet which describes the track's shape. Freeman has suggested that a useful approximation to curvature is the sequence of quantized directional segments generated by the points in a thinned track. Kuhl and Bernstein have used this approximation in their character recognition schemes. Bernstein, in fact, found it unnecessary to use the duration of each quantized direction but, rather, simply listed <u>changes</u> in quantized direction. Whereas Kuhl and Bernstein both used eight possible directions, the recognition scheme described here uses only four. Four directions, used in conjunction with other features, provide sufficient description for recognition, yet result in fewer symbol variations than do eight directions."
+				</div>
+				<br/><br/>
+
+				<table style="float: right; margin-bottom: 10px">
+					<tr>
+						<td>
+							<div id="curvature_intro_wrapper" class="animation" style="position: relative;">
+								<svg id="curvature" class="svgWithText" width="200" height="200" style="margin: 10px; margin-top: 0px; margin-bottom: 0px; cursor: crosshair">
+								</svg>
+								<script type="text/javascript" src="js/curvature.js"></script>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<div id="curvature_explanation" style="font-family: Lato; font-size: 13px; padding-left: 0px; padding-right: 20px; width: 250px">
+								Because the rectangle is wider than it is tall and it lies to the right of the previous point, the assigned direction is <b><i>right</i></b>
+							</div>
+						</td>
+					</tr>
+				</table>
+
+				<div>
+				After smoothing and thinning the input, each data-point is assigned a <i>direction</i>. Somewhat shockingly, Groner found that it was sufficient to only consider the cardinal directions when describing the curvature of strokes. Therefore, each point is considered to be result of a movement heading either <i>up</i>, <i>down</i>, <i>left</i>, or <i>right</i>. We can determine the direction assigned to a point by considering the rectangle described by it and the previous point. If this rectangle is wider than it is tall, the point must represent a movement <i>left</i> or <i> right</i>. If the rectangle is taller than it is wide, the point must be the result of a movement <i>up</i> or <i>down</i>. You can get a feel for the determination of cardinal direction using the visualization to the right. Click and drag to move the second point relative to the fixed center point. The connecting rectangle is drawn between the two points in grey.
+				</div>
+				<br/>
+
+				<div>
+				Draw on the tablet below to see how the curvature is computed for arbitrary input. Pay particular attention to how this system behaves when you input quite curvy characters like eights and sixes.
+				</div>
+
+				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="curvature_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail3" class="svgWithText" width="350" height="350" style="margin: 10px; margin-left: 0px; cursor: crosshair"></svg>
+									<script type="text/javascript" src="js/grail3.js"></script>
+								</div>
+  							</td>
+  							<td>
+  								<div id="" style="text-align: center; font-size: 14; font-family: Arvo">
+  									When a new point (the j<sup>th</sup>) is accepted in the thinned track, a quantized direction is computed using these inequalities:<br/><br/><br/>
+
+  									if |X<sub>Tj</sub> - X<sub>Tj-1</sub>| >= |Y<sub>Tj</sub> - Y<sub>Tj-1</sub>|<br/><br/>
+  									<i><b>right</b></i> if X<sub>Tj</sub> - X<sub>Tj-1</sub> >= 0<br/>
+  									<i><b>left</b></i> if X<sub>Tj</sub> - X<sub>Tj-1</sub> < 0
+  									<br/><br/><br/>
+  									if |X<sub>Tj</sub> - X<sub>Tj-1</sub>| < |Y<sub>Tj</sub> - Y<sub>Tj-1</sub>|<br/><br/>
+  									<i><b>up</b></i> if Y<sub>Tj</sub> - Y<sub>Tj-1</sub> >= 0<br/>
+  									<i><b>down</b></i> if Y<sub>Tj</sub> - Y<sub>Tj-1</sub> < 0
+
+				  				</div>
+  							</td>
+						</tr>
+  				</table><br/>
+
+  				<div>
+  				Even though every single point is assigned a cardinal direction, only the <i>changes</i> in direction are used by Groner’s character recognizer. This allows us to discard redundant data points and achieve a very compact representation of each stroke’s curvature. For example, an <span style="font-family: Inconsolata; font-weight: bold">L</span> can be described by two directional segments <span style="font-size: 11px">▼ ▶</span>, and depending on how you draw it, a <span style="font-family: Inconsolata; font-weight: bold">O</span> might be described by five <span style="font-size: 11px">▶ ▼ ◀ ▲ ▶</span>. Draw on the tablet below to see how the curvature is represented when only <i>changes</i> in direction are recorded. On this tablet, the changes in direction are drawn in black, and the redundant directions are rendered in light grey.
+  				</div>
+  				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="thinned_curvature_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail4" class="svgWithText" width="350" height="350" style="margin: 10px; margin-left: 0px; cursor: crosshair"></svg>
+									<script type="text/javascript" src="js/grail4.js"></script>
+								</div>
+  							</td>
+  							<td>
+  								<div id="" style="text-align: center; font-size: 14; font-family: Arvo">
+  									If the same direction occurs twice in succession, and is not the same as the last direction listed in the sequence, then it is added to the list; otherwise it is discarded.
+				  				</div>
+  							</td>
+						</tr>
+  				</table>
+  			</td>
+   			<td class="figureExplanation" style="">
+   				I would love to provide you with links to these works of Kuhl, Bernstein, and Freeman, but I keep hitting the academic paywall. The bibliographic references for these works are available in Groner’s memo if you are interested in further reading.
+			</td>
+  		</tr>
+  	</table><br/>
+
+ 	<div class="littleheader" style="font-family: Vollkorn"> Corners
+	</div>
+<!-- 	<div class="divider">
+	</div> -->
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+
+				<div>
+				While the curvature of each stroke can be used to make an informed guess about the user’s intent, some symbols cannot be differentiated from one another using only directional information. For example, “<span style="font-family: Inconsolata; font-weight: bold">5</span>” and “<span style="font-family: Inconsolata; font-weight: bold">S</span>” can be drawn in such a way that both will yield the same directional segments <span style="font-size: 11px">◀ ▼ ▶ ▼ ◀</span>. Similarly, a circle and a rectangle might both yield <span style="font-size: 11px">▶ ▼ ◀ ▲ ▶</span>. Groner decided to use the presence or absence of <i>corners</i> to address these sorts of ambiguities. For example, a “<span style="font-family: Inconsolata; font-weight: bold">5</span>” will generally be drawn with one or two corners on the left-hand side of the symbol, whereas an “<span style="font-family: Inconsolata; font-weight: bold">S</span>” will generally be drawn without any corners. Likewise, rectangles can be distinguished from circles by checking for the presence of corners.
+				</div>
+				<br/>
+				<div>
+				Corner detection is implemented in a relatively straightforward manner. In the same way that we assign a cardinal direction to each input point, Groner also assigns a so-called “16-direction” to each point. A corner is detected whenever the pen moves in the same 16-direction for two segments, changes direction by at least 90°, and then moves in the same 16-direction for two more segments. 
+
+				<br/><br/>
+				Draw some numbers, letters, and basic shapes on the tablet below to see the corner detection algorithm in action. The recognizer will mark corners with a pink cross <span style="color: deeppink">✚</span>. You can experiment with thresholds other than 90° using the slider to the right of the tablet. Spend a bit of  time drawing characters for which corners are a distinguishing characteristic (<span style="font-family: Inconsolata; font-weight: bold">5</span>, <span style="font-family: Inconsolata; font-weight: bold">S</span>, <span style="font-family: Inconsolata; font-weight: bold">C</span>, <span style="font-family: Inconsolata; font-weight: bold">G</span>, boxes and circles), and then slowly adjust the slider.
+				</div>
+
+  				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="corner_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail5" class="svgWithText" width="350" height="350" style="margin: 10px; margin-left: 0px; cursor: crosshair"></svg>
+									<script type="text/javascript" src="js/grail5.js"></script>
+								</div>
+  							</td>
+  							<td>
+  								<div id="corner_tangle" style="text-align: center; font-size: 14; font-family: Arvo">
+  									A <span style="color: deeppink">corner</span> is detected whenever the pen moves in the same direction for at least two segments, changes direction by at least <span data-var="corner_threshold" class="TKNumber" style="font-weight:bold"></span><span style="font-weight:bold">°</span> and then proceeds along the new direction for at least two segments.<br/><br/>The change in direction must take place either immediately or through a one-segment turn.
+  									<br/><br/><br/>
+
+  									<input data-var="" type=range min=1 max=180 value=90 id=cornerSlider step=1 oninput="updateCorner(value);" style="width:100px">
+				  				</div>
+  							</td>
+						</tr>
+  				</table>
+
+  			</td>
+   			<td class="figureExplanation" style="">
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/>
+   				If you evenly divide a circle into 16 slices, the edges of these slices are Groner’s so called, 16-directions:
+   				<br/><br/>
+   				<div id="sixteen_wrapper" class="animation" style="position: relative; ">
+									<svg id="sixteendirection" class="svgWithText" width="130" height="130" style=""></svg>
+									<script type="text/javascript" src="js/sixteendirection.js"></script>
+								</div>
+				<br/>
+				Groner rendered the user’s "ink" trail to the screen by stitching together line segments based on these 16-directions. He found that these 16 angles provided enough coverage to nicely render the output, and used the exact same data as input to his corner detection scheme. In this essay, I am not using the 16-directions to render the stroke to the screen, only as input to the corner detection process.
+
+				<br/><br/>
+				In a different memorandum, Groner mentions an alternative method for detecting corners. It’s based on the observation that datapoints tend to accumulate in corners since the user's pen often slows to a near stop before speeding back up as it exists the corner. You can therefore detect corners by checking for a higher than normal accumulation of data points prior to thinning. I have not implemented this approach.
+			</td>
+  		</tr>
+  	</table>
+
+
+ 	<div class="littleheader" style="font-family: Vollkorn"> Size and Position Features
+	</div>
+<!-- 	<div class="divider">
+	</div> -->
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+				<div>
+				Every mark made on the tablet is packaged into a <i>stroke description</i>. The stroke description is a representation which records the salient features of the stroke relative to an imaginary bounding box surrounding the stroke. The description allows us to easily answer questions like, “Did the user start drawing this symbol in the upper left, and stop drawing in the lower right?” If the answer to this question is yes, there is a good chance that the user intended to draw a <span style="font-family: Inconsolata; font-weight: bold">2</span> or a <span style="font-family: Inconsolata; font-weight: bold">Z</span>. “Did the user lift their pen off the surface very close to where they began drawing?” If so, then it may be the case that the user intended to draw a closed stroke like a <span style="font-family: Inconsolata; font-weight: bold">O</span> or an <span style="font-family: Inconsolata; font-weight: bold">8</span>. The stroke description also captures simple features of the stroke like the width, height, and aspect ratio. These features allow us to answer questions like, “Would you describe the symbol as being fat or skinny?” The answer to this question might help us differentiate between <span style="font-family: Inconsolata; font-weight: bold">7</span> and <span style="font-family: Inconsolata; font-weight: bold">1</span>.
+				</div><br/>
+
+				<div style="font-family: Arvo; font-weight: normal">
+  				"As a stroke is drawn, its x (horizontal) and y (vertical) extremes are continuously updated. When the pen is lifted, thereby indicating the completion of the stroke, the analysis scheme uses these extremes to calculate the symbol's height and width in fractions-of-an-inch, its aspect ratio (ratio of height to width), and its center relative to the tablet origin. It divides the rectangular area defined by the symbol extremes into a 4 x 4 grid. The starting (pen-down) and ending (pen-up) points, as well as the corner locations, are then each encoded as lying in one of these 16 areas, thereby locating them relative to the symbol."
+				</div><br/>
+
+				<div>
+				Draw some letters and numbers onto the virtual tablet below. The position at which you begin drawing will be marked with a blue circle, and the position at which you stop drawing will be marked with a blue square. Immediately after lifting your pen, the stroke description will be shown to the right of the tablet.
+				</div>
+
+  				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="feature_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail6" class="svgWithText" width="350" height="350" style="margin: 10px; margin-left: 0px; cursor: crosshair"></svg>
+								</div>
+  							</td>
+  							<td>
+  								<div id="feature_grid_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail6B" class="svgWithText" width="250" height="330" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+									<script type="text/javascript" src="js/grail6.js"></script>
+								</div>
+  							</td>
+						</tr>
+  				</table>
+
+  			</td>
+   			<td class="figureExplanation" style="">
+			</td>
+  		</tr>
+  	</table>
+
+	<div class="littleheader" style="font-family: Vollkorn"> Character Recognition
+	</div>
+<!-- 	<div class="divider">
+	</div> -->
+
+
+	<script type="text/javascript" src="js/letterdata.js"></script>
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+
+				<div style="font-family: Arvo; font-weight: normal; clear: both">
+  					"The identification of a symbol is based on a data-dependent sequence of tests. At each step in the decision making process there are several potential identifications. Some of these are eliminated by testing the key features of the track. The particular test applied at any step depends on the set of possible identifications at that step, and on those characteristics of the track which have already been examined. The decision-making scheme thus has a tree structure. Its original design was based on an examination of the handwriting of four users. The author changes its structure, to accommodate additional symbol variations, as he acquires more experience."
+				</div>
+
+				<div style="clear: both;">
+				<br/>
+				The recognizer begins by generating a list of potential characters based upon the first <i>four</i> cardinal directions of the stroke. Strokes which cannot, or would not, normally be drawn using these first four directions are immediately eliminated from consideration. Sometimes, the first four directions provide enough information to precisely identify a character. For example, a stroke which moves down, right, and then stops <span style="font-size: 11px">▼ ▶</span> can be immediately identified as an <span style="font-family: Inconsolata; font-weight: bold">L</span>. Similarly, the only possible match for a stroke beginning with the four directions<br/> <span style="font-size: 11px">▶ ◀ ▶ ◀</span> is the character <span style="font-family: Inconsolata; font-weight: bold">3</span>. Usually, the first four directions will <i>not</i> lead to an immediate identification, and we will be left with a list of potential characters. For example, a stroke beginning with <span style="font-size: 11px">▶ ▼ ◀ ▲ </span> might end up as a <span style="font-family: Inconsolata; font-weight: bold"> O</span>, <span style="font-family: Inconsolata; font-weight: bold">2</span> or <span style="font-family: Inconsolata; font-weight: bold">3</span>. Click on the images below to see how each stroke is drawn. Notice that all three <i>begin</i> in the exact same way.
+				<br/><br/>
+
+  				<div style="margin-left: 170px">
+					<div id="ambig_wrapper_0" class="animation" style="position: relative; float: left">
+						<svg id="ambig_0" class="svgWithText" width="140" height="140" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="ambig_wrapper_1" class="animation" style="position: relative; float: left">
+						<svg id="ambig_1" class="svgWithText" width="140" height="140" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="ambig_wrapper_2" class="animation" style="position: relative; float: left">
+						<svg id="ambig_2" class="svgWithText" width="140" height="140" style="margin: 20px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+				</div>
+
+				<div style="clear: both;">
+ 					 We can resolve these sorts of ambiguities by testing other aspects of the stroke description. For example, we can identify a <span style="font-family: Inconsolata; font-weight: bold">2</span> if the stroke ends in the <i>bottom right</i> corner of the symbol. A three can be identified by checking to see if the stroke ends in the <i>bottom left</i> corner of the symbol. We can identify the <span style="font-family: Inconsolata; font-weight: bold">O</span> by noticing that the start and end positions both lie close to one another at the <i>top</i> of the symbol. In practice, the decision-making process is implemented by writing a large cascade of <i>if</i> statements. There is no “magic” in this process, and the decision tree must be handcoded by a diligent and perceptive programmer who is willing to improve and modify the decision tree as they encounter new and unexpected ways of writing certain characters.
+					<script type="text/javascript" src="js/ambig.js"></script>
+  				</div><br/>
+
+  				<div>
+					The recognizer I'm presenting in this essay is capable of identifying uppercase letters and numbers which are drawn in a <i>single stroke</i>. In other words, each character must be drawn in its entirety  without lifting the pen from the writing surface. Groner’s original recognizer was capable of identifying <i>multi-stroke</i> characters which allowed the user to input text in a <i>completely natural way</i>. Groner’s aim was to leverage existing competencies of the user, to make it unnecessary for the user to adapt their writing style to fit the needs of a software system. In fact, Alan Kay claims that one of the main motivations for the system was to obviate the need for typing instruction. Because my aim is far less ambitious — to explain the basic methodologies employed Groner — I’ve decided to implement a simpler, single-stroke variant of the recognizer. Multi-stroke identification isn’t that much more <i>complex</i> than single-stroke identification, but it is a bit more <i>complicated</i>. The approach is clearly spelled out in Groner’s original memo if you are interested in implementing it yourself.
+  				</div><br/>
+
+  				<div>
+					My constraint that all characters must be written in a single stroke means that the user must adapt their natural handwriting to some degree. I have written a recognizer which expects that the user will input letters and numbers roughly following the vocabulary described below. The <span style="font-family: Inconsolata; font-weight: bold">F</span> and <span style="font-family: Inconsolata; font-weight: bold">X</span> in particular, require a bit of unnatural mental contortion from the user. Click on a stroke to see an animation of it being drawn.
+  				</div><br/>
+
+  				<div>
+					<div id="alphabet_wrapper_A" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_A" class="svgWithText" width="70" height="70" style="margin: 0px; margin-left: 0px; cursor: pointer;"></svg>
+					</div>
+					<div id="alphabet_wrapper_B" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_B" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_C" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_C" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_D" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_D" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_E" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_E" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_F" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_F" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_G" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_G" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_H" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_H" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_I" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_I" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_J" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_J" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_K" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_K" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_L" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_L" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_M" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_M" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_N" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_N" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_O" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_O" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_P" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_P" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_Q" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_Q" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_R" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_R" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_S" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_S" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_T" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_T" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_U" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_U" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_V" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_V" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_W" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_W" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_X" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_X" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_Y" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_Y" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_Z" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_Z" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper__" class="animation" style="position: relative; float: left">
+						<svg id="alphabet__" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_1" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_1" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_2" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_2" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_3" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_3" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_4" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_4" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_5" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_5" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_6" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_6" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_7" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_7" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_8" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_8" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="alphabet_wrapper_9" class="animation" style="position: relative; float: left">
+						<svg id="alphabet_9" class="svgWithText" width="70" height="70" style="margin: 10px; margin-left: 0px; cursor: pointer"></svg>
+					</div>
+
+					<script type="text/javascript" src="js/alphabet.js"></script>
+  				</div>
+  				<div style="clear: both; height: 15px">
+  				</div><br/>
+
+
+				<div style="clear: both;">
+				While it’s necessary that a general shape be followed when drawing a given character, Groner’s method is robust enough to allow for a great deal of variation and sloppiness when drawing the characters. For example, all of the following strokes will be identified as the number <span style="font-family: Inconsolata; font-weight: bold">3</span>.
+				</div><br/>
+
+  				<div style="">
+					<div id="threes_wrapper_1" class="animation" style="position: relative; float: left">
+						<svg id="threes_1" class="svgWithText" width="90" height="90" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="threes_wrapper_2" class="animation" style="position: relative; float: left">
+						<svg id="threes_2" class="svgWithText" width="90" height="90" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="threes_wrapper_3" class="animation" style="position: relative; float: left">
+						<svg id="threes_3" class="svgWithText" width="90" height="90" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="threes_wrapper_4" class="animation" style="position: relative; float: left">
+						<svg id="threes_4" class="svgWithText" width="90" height="90" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="threes_wrapper_5" class="animation" style="position: relative; float: left">
+						<svg id="threes_5" class="svgWithText" width="90" height="90" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="threes_wrapper_6" class="animation" style="position: relative; float: left">
+						<svg id="threes_6" class="svgWithText" width="90" height="90" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+					<div id="threes_wrapper_7" class="animation" style="position: relative; float: left">
+						<svg id="threes_7" class="svgWithText" width="90" height="90" style="margin: 10px; margin-left: 0px; padding: 0px; cursor: pointer"></svg>
+					</div>
+
+					<script type="text/javascript" src="js/threes.js"></script>
+  				</div><br/>
+
+  				<div style="margin-top: 20px; clear: both">
+  					<br/>
+  				Try the recognizer by drawing some letters and numbers onto the tablet below. I recommend that you begin by slowly drawing a <span style="font-family: Inconsolata; font-weight: bold">3</span>. Watch carefully  as the list of potential characters is slowly winnowed down until a match is either trivial, or a final differentiation must be made by consulting the decision-tree. Whenever the decision tree is consulted, a justification for the identification will be output in text form. <br/><br/>
+  				</div>
+
+  				<table>
+						<tr class="figureCaption">
+						</tr>
+						<tr>
+							<td>
+								<div id="single_stroke_wrapper" class="animation" style="position: relative; ">
+									<svg id="grail7" class="svgWithText" width="350" height="350" style="margin: 10px; margin-left: 0px; cursor: crosshair"></svg>
+								</div>
+  							</td>
+  							<td>
+								<div id="single_stroke_identification" style="width:300; height:320px; font-size: 14; text-align: center; vertical-align: top; font-family: Arvo;">
+								</div>
+								<script type="text/javascript" src="js/grail7.js"></script>
+  							</td>
+						</tr>
+  				</table>
+  				<br/><br/>
+
+  				<div style="margin-top: 20px; clear: both">
+  				It’s very likely that my recognizer will fail on some of your inputs. If this happens, you should not fault Groner’s method. The memorandum is very clear about the fact that first time users experienced a successful identification rate of 90% when using his recognizer. My decision tree is my own, and it’s biased towards my own style of handwriting. The advantage that I have over Groner however, is that I can crowd-source a program of continual improvement! If you get a bogus identification that irks you, please post a screenshot of it on the project <a href="https://github.com/jackschaedler/handwriting-recognition/issues">issues</a> page on Github.
+  				</div>
+
+
+  			</td>
+   			<td class="figureExplanation" style="">
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/>
+   				If you decide to write your own character recognizer in the style of Groner, you’ll quickly discover that there is a great deal of variety in the way that people write Latin characters. Some people draw an 8 as two circles stacked atop one another. Some people will begin with a sharp diagonal movement from the top right to the bottom left and then draw an S in reverse. Others will first draw the S and then finish the stroke with a quick diagonal movement to the top-right. Others will begin in the center of the S and draw a lazy figure eight.
+   				<br/>
+   				<br/><br/>
+   				The fact that Latin characters do not have a canonical stroking sequence (or if they do, everyone seems to have forgotten it) makes the task of handwriting recognition a bit tough for English. Chinese, on the other hand, has a canonical way to stroke each character. For this reason, character recognition programs were used for Chinese with a great deal of success very early in the history of human-computer-interaction. In fact, Groner wrote <a href="http://www.rand.org/pubs/papers/P3568.html">another memorandum</a> on the application of his recognition scheme for Chinese language input as an aid to translation tasks. Essentially, Groner had a functioning prototype for Google Translate's freehand input feature for Chinese in 1967.
+   				<br/><br/>
+   				Compare this to the <a href="https://en.wikipedia.org/wiki/Graffiti_(Palm_OS)">Palm Grafitti</a> vocabulary which was designed and implemented in the 1990s.
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				It’s very easy to trick my recognizer into making a ridiculous identification. A mess of scribbles might be confidently identified as a 3 or a 5 given the way this thing is implemented. This might disappoint you if you were hoping to find some sort of profound artificial intelligence behind the curtain. However, I don’t find this lack of common-sense-intelligence to be such a big problem. This recognizer is a simple tool, and it needs to be treated like any other simple tool.
+			</td>
+  		</tr>
+  	</table>
+
+
+ 	<div class="littleheader" style="font-family: Vollkorn"> Afterword
+	</div>
+
+  	<table class="figureTable">
+		<tr>
+			<td style="vertical-align: top;">
+				<div class="text" style="margin-left: 0px">
+					<div>
+				I think it’s worth asking why anyone in their right mind should care about mid-century handwriting recognition algorithms in 2016. Five decades have passed since the publication of Groner’s memorandum, and GRAIL has all but vanished from the canon of mainstream programming and HCI communities. Most modern computer users are competent typists, and inputting text with a stylus is likely slower than touch typing with the assistance of highly optimized autocompletion algorithms. Why should anyone take the time to reread Groner’s original paper, much less this essay?
+					</div> <br/>
+
+					<div> 
+				For me, Groner’s work is interesting <i>not</i> because it allows one to naturally communicate <i>text</i> to a computer system, but because it allows humans to interface with the computer through the high-bandwidth medium of <i>drawing</i>. I have focused on text in this essay because that was a main focus of Groner’s original work, but I see many more compelling applications for this technology in the recognition and processing of pictorial and analogic gestures. Drawing is an eminently powerful form of communication, and I really love the idea that drawing can serve as a primary or supplementary method of communication with our personal computers. Ken Perlin’s <a href="https://youtu.be/GfW4i4b_HT0?t=18m30s">Chalktalk</a> is a wonderful example of this principle, and I highly recommend watching his <a href="https://youtu.be/GfW4i4b_HT0?t=18m30s">demo</a> if you’re skeptical about the application of Groner’s method to tasks beyond text recognition.
+					</div><br/>
+
+					<div> 
+				Aside from any interest in drawing or handwriting recognition, I’ve found it exceptionally fun to learn  more about the history of early interface design. The 1960s and 70s were a fascinating time in the history of computing, and the work of Gabriel Groner and the GRAIL team makes for a great entry-point into the literature. Take some time to read through the archive of RAND <a href="http://www.rand.org/pubs/authors/g/groner_gabriel_f.html">publications by Groner</a>. It certainly blew my mind to learn that researchers were creating interactive graphics programs for the, <a href="http://www.rand.org/pubs/research_memoranda/RM5925.html">”Study of Kinetic Chemical Systems”</a> in 1969. Take an hour to read Groner’s, <a href="http://www.rand.org/pubs/reports/R1183.html">“Guide to Display Terminals that Enhance Man”</a> to get a feel for an amazing era in the history of computing. If you find this sort of thing interesting, I can heartily recommend learning about Ivan Sutherland’s <a href="https://youtu.be/6orsmFndx_o">Sketchpad</a> system, <a href="https://en.wikipedia.org/wiki/PARC_(company)">XEROX Parc</a>, and watching any lectures from <a href="https://youtu.be/2e5_Z6oZ0rM">Richard Hamming</a>.
+					</div><br/>
+
+					<div> 
+				If you have enjoyed the <i>style</i> of this essay, you might also enjoy an active essay on <a href="http://www.playfulinvention.com/emergence/index.html">cellular automata and emergence</a>, some excellent <a href="http://explorableexplanations.com/">explorable explanations</a>, Bret Victor’s <a href="http://worrydream.com/LadderOfAbstraction/"> Up and Down the Ladder of Abstraction</a>, Mike Bostock’s <a href="https://bost.ocks.org/mike/algorithms/"> Visualizing Algorithms</a>, and Mary Rose Cook’s introductions to <a href="https://maryrosecook.com/blog/post/little-lisp-interpreter">LISP</a> and <a href="https://maryrosecook.com/blog/post/git-from-the-inside-out">Git</a>.
+					</div><br/>
+
+				<div> 
+				The wonderful <a href="https://d3js.org/">d3.js</a> library is used to render all of the interactive graphics on this page. The <a href="http://worrydream.com/Tangle/">Tangle</a> library is used to update some of the symbolic mathematical formulas dynamically.
+					</div><br/>
+
+					<br/>
+				-<a href="http://jackschaedler.github.io/">Jack Schaedler</a><br/>
+				Berlin, 2016
+				</div>
+  			</td>
+   			<td class="figureExplanation" style="">
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/><br/>
+   				<br/><br/><br/>
+   				N.B. that Groner’s recognizer was used to create structured drawings, flowcharts, and create executable programs based on these drawings. It most certainly was not all about providing an alternative to keyboard-based text input. Text input was a small component of a much larger vision for human-computer interaction.
+			</td>
+  		</tr>
+  	</table>
+
+	<br/><br/><br/>
+	</div>
+  </body>
+
+     <script type="text/javascript">
+     	for (var i = 0; i < 8; i++)
+     	{
+			document.getElementById("grail" + i).parentElement.addEventListener("touchmove", function(event) {
+			    event.preventDefault();
+			    event.stopPropagation();
+				}, false);
+		}
+
+		document.getElementById("curvature").parentElement.addEventListener("touchmove", function(event) {
+			    event.preventDefault();
+			    event.stopPropagation();
+				}, false);
+    </script>
+</html>
